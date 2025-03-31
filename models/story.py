@@ -45,7 +45,7 @@ class StoryContinuationRequest(BaseModel):
     )
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "length": 300,
                 "difficulty": "slightly_harder"

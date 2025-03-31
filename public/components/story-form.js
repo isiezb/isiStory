@@ -396,7 +396,6 @@ export class StoryForm extends LitElement {
     }
 
     .input-group {
-      flex: 1 1 275px;
       margin-bottom: 1.5rem;
     }
 
@@ -483,19 +482,6 @@ export class StoryForm extends LitElement {
     .topic-focus input {
       border: 2px solid var(--primary-100, #e0e7ff) !important;
       background-color: #fcfcff !important;
-    }
-
-    /* Add spacing between form elements */
-    .story-elements-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(275px, 1fr));
-      gap: 20px;
-      margin-bottom: 20px;
-    }
-
-    /* Ensure input containers have proper spacing */
-    .input-group {
-      margin-bottom: 16px;
     }
 
     /* Mobile styles */
