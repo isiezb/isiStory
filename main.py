@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from routers import story # Import the story router
+from routers import config  # Import the new config router
 import uvicorn
 import logging
 import os # Import os for environment variables
@@ -43,6 +44,7 @@ app.add_middleware(
 # --- API Routers --- 
 # API routers should be included BEFORE static files/catch-all
 app.include_router(story.router) # Handles /stories/generate
+app.include_router(config.router)  # Add the config router
 
 @app.get("/status", tags=["health"])
 async def read_status():

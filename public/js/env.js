@@ -12,18 +12,51 @@ const ENV = {
   // 5. Make sure you've run the SQL setup script to create the required tables
   // ===================================================
   
-  // YOUR SUPABASE CREDENTIALS (REPLACE THESE VALUES)
-  SUPABASE_URL: "https://YOUR_SUPABASE_URL.supabase.co", // Replace with your project URL
-  SUPABASE_KEY: "YOUR_SUPABASE_KEY", // Replace with your anon/public key
+  // Supabase credentials - these will be fetched from the server
+  SUPABASE_URL: "",
+  SUPABASE_KEY: "",
   
   DEBUG: true,
   ENABLE_STORAGE: true // Set to false to disable story saving
 };
 
 // Make environment variables available globally
-(function loadEnv() {
+async function loadEnv() {
+  // First set basic env vars
   Object.keys(ENV).forEach(key => {
     window[`ENV_${key}`] = ENV[key];
   });
-  console.log("Environment variables loaded:", ENV);
-})(); 
+  
+  console.log("Basic environment variables loaded");
+  
+  // Then fetch Supabase credentials from server
+  try {
+    console.log("Fetching Supabase credentials from server...");
+    const response = await fetch("/config/client-env");
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch config: ${response.status} ${response.statusText}`);
+    }
+    
+    const config = await response.json();
+    
+    // Update environment variables with server-provided values
+    if (config.supabase_url) {
+      window.ENV_SUPABASE_URL = config.supabase_url;
+      console.log("Supabase URL loaded from server");
+    }
+    
+    if (config.supabase_key) {
+      window.ENV_SUPABASE_KEY = config.supabase_key;
+      console.log("Supabase key loaded from server");
+    }
+    
+    console.log("Environment variables updated from server");
+  } catch (error) {
+    console.error("Failed to load config from server:", error);
+    console.warn("Using default environment variables. Some features may not work.");
+  }
+}
+
+// Execute the async function
+loadEnv(); 
