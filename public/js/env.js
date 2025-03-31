@@ -29,26 +29,45 @@ async function loadEnv() {
   
   console.log("Basic environment variables loaded");
   
+  // Add a timestamp to the request URL to avoid caching
+  const timestamp = new Date().getTime();
+  const configUrl = `/config/client-env?_=${timestamp}`;
+  
   // Then fetch Supabase credentials from server
   try {
-    console.log("Fetching Supabase credentials from server...");
-    const response = await fetch("/config/client-env");
+    console.log(`Fetching Supabase credentials from server (${configUrl})...`);
+    const response = await fetch(configUrl);
+    
+    console.log(`Config response status: ${response.status} ${response.statusText}`);
     
     if (!response.ok) {
       throw new Error(`Failed to fetch config: ${response.status} ${response.statusText}`);
     }
     
     const config = await response.json();
+    console.log("Raw config response received");
+    
+    // Log what we got (safely)
+    const safeConfig = {
+      supabase_url: config.supabase_url || "(empty)",
+      supabase_key: config.supabase_key ? 
+        `${config.supabase_key.substring(0, 5)}...${config.supabase_key.length}` : "(empty)"
+    };
+    console.log("Config received:", safeConfig);
     
     // Update environment variables with server-provided values
     if (config.supabase_url) {
       window.ENV_SUPABASE_URL = config.supabase_url;
       console.log("Supabase URL loaded from server");
+    } else {
+      console.warn("Server did not provide a Supabase URL");
     }
     
     if (config.supabase_key) {
       window.ENV_SUPABASE_KEY = config.supabase_key;
       console.log("Supabase key loaded from server");
+    } else {
+      console.warn("Server did not provide a Supabase key");
     }
     
     console.log("Environment variables updated from server");
@@ -59,4 +78,8 @@ async function loadEnv() {
 }
 
 // Execute the async function
-loadEnv(); 
+loadEnv().then(() => {
+  console.log("Environment loading complete");
+}).catch(err => {
+  console.error("Error during environment loading:", err);
+}); 

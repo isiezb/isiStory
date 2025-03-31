@@ -2,6 +2,32 @@
  * Main application script
  */
 
+// Debug function to check Supabase credentials
+async function debugSupabaseConfig() {
+  console.log("==== Supabase Config Debug ====");
+  console.log("ENV_SUPABASE_URL:", window.ENV_SUPABASE_URL);
+  console.log("ENV_SUPABASE_KEY:", window.ENV_SUPABASE_KEY ? 
+              window.ENV_SUPABASE_KEY.substring(0, 5) + "..." : "not set");
+  
+  // Test the config endpoint directly
+  try {
+    const response = await fetch("/config/client-env");
+    if (!response.ok) {
+      console.error("Config endpoint error:", response.status, response.statusText);
+    } else {
+      const config = await response.json();
+      console.log("Config endpoint response:", {
+        supabase_url: config.supabase_url || "not returned",
+        supabase_key: config.supabase_key ? 
+                     (config.supabase_key.substring(0, 5) + "...") : "not returned"
+      });
+    }
+  } catch (error) {
+    console.error("Failed to fetch from config endpoint:", error);
+  }
+  console.log("===============================");
+}
+
 // Initialize the application
 (function initApp() {
   // Add global event listeners
@@ -33,6 +59,9 @@
     } catch (err) {
       console.error('Error during authentication setup:', err);
     }
+
+    // Add debug call
+    setTimeout(debugSupabaseConfig, 1000);
 
     console.log('App initialized successfully');
   }
