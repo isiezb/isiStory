@@ -1,216 +1,223 @@
 // Supabase client initialization
-console.log('Loading Supabase client...');
+let supabaseClient = null;
+let supabaseScriptLoaded = false;
 
-// Initialize Supabase client
 async function initSupabaseClient() {
-  // Check if Supabase is already initialized
-  if (window.supabase) {
-    console.log('Supabase client already initialized');
-    return window.supabase;
+  console.log("Initializing Supabase client...");
+  
+  // Check if client is already initialized
+  if (supabaseClient) {
+    console.log("Supabase client already initialized");
+    return supabaseClient;
   }
-
-  // Check if Supabase script is loaded
-  if (typeof supabase === 'undefined') {
-    console.warn('Supabase script not loaded, loading dynamically...');
+  
+  // Check if the Supabase script is loaded
+  if (!window.supabase && !supabaseScriptLoaded) {
+    console.log("Supabase script not loaded, loading dynamically...");
     
-    // Load the Supabase script if needed
-    await new Promise((resolve, reject) => {
+    // Load the Supabase script dynamically
+    return new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.31.0/dist/umd/supabase.min.js';
-      script.onload = resolve;
-      script.onerror = reject;
+      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+      script.onload = () => {
+        console.log("Supabase script loaded successfully");
+        supabaseScriptLoaded = true;
+        
+        // After script is loaded, create the client
+        createSupabaseClient().then(resolve).catch(reject);
+      };
+      script.onerror = (error) => {
+        console.error("Failed to load Supabase script:", error);
+        reject(new Error("Failed to load Supabase script"));
+      };
       document.head.appendChild(script);
     });
+  } else {
+    // Script already loaded, create client
+    return createSupabaseClient();
   }
+}
 
+async function createSupabaseClient() {
+  console.log("Creating Supabase client...");
+  
+  // Wait for environment variables to load if promise exists
+  if (window.envLoadedPromise) {
+    console.log("Waiting for environment variables to load...");
+    await window.envLoadedPromise;
+  }
+  
+  // Get credentials from environment variables
+  const supabaseUrl = window.ENV_SUPABASE_URL;
+  const supabaseKey = window.ENV_SUPABASE_KEY;
+  
+  // Log SafeURL and partial key for debugging
+  const safeUrl = supabaseUrl || "(empty)";
+  const safeKey = supabaseKey ? 
+    `${supabaseKey.substring(0, 5)}...${supabaseKey.substring(supabaseKey.length - 5)}` : 
+    "(empty)";
+  
+  console.log(`Creating Supabase client with URL: ${safeUrl} and key: ${safeKey}`);
+  
+  // Validate Supabase credentials before creating client
+  if (!supabaseUrl || !supabaseKey || 
+      supabaseUrl === "https://YOUR_SUPABASE_URL.supabase.co" || 
+      supabaseKey === "YOUR_SUPABASE_KEY" ||
+      supabaseUrl === "https://example.supabase.co" ||
+      supabaseKey.includes("example")) {
+        
+    console.error("Invalid Supabase credentials. Using mock Supabase client.");
+    
+    // Return mock client if credentials are invalid
+    return createMockSupabaseClient();
+  }
+  
+  // Create and return the real Supabase client
   try {
-    // Get Supabase credentials from environment variables
-    const supabaseUrl = window.ENV_SUPABASE_URL;
-    const supabaseKey = window.ENV_SUPABASE_KEY;
-
-    // Check for valid credentials
-    if (!supabaseUrl || supabaseUrl.includes('YOUR_SUPABASE_URL') ||
-        !supabaseKey || supabaseKey.includes('YOUR_SUPABASE_KEY')) {
-      console.warn('Invalid Supabase credentials. Using mock Supabase client.');
-      return createMockSupabaseClient();
-    }
-
-    // Create the Supabase client
-    console.log('Creating Supabase client with URL:', supabaseUrl);
-    const client = window.supabase.createClient(supabaseUrl, supabaseKey);
-    
-    // Store client in window object
-    window.supabase = client;
-    console.log('Supabase client initialized successfully');
-    
-    return client;
+    console.log("Creating real Supabase client...");
+    supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+    console.log("Supabase client created successfully");
+    return supabaseClient;
   } catch (error) {
-    console.error('Error initializing Supabase client:', error);
+    console.error("Error creating Supabase client:", error);
+    console.warn("Falling back to mock Supabase client");
     return createMockSupabaseClient();
   }
 }
 
-// Create a mock Supabase client for development/fallback
+// Create a mock Supabase client for development/testing
 function createMockSupabaseClient() {
-  console.log('Creating mock Supabase client');
+  console.log("Creating mock Supabase client");
   
-  // In-memory storage for development
-  const mockData = {
+  // In-memory storage for the mock client
+  const mockStorage = {
     stories: []
   };
   
-  // Mock Supabase client
-  const mockClient = {
-    auth: {
-      getSession: () => Promise.resolve({ data: { session: null }, error: null }),
-      onAuthStateChange: (callback) => {
-        console.log('Mock auth state change registered');
-        return { data: { subscription: { unsubscribe: () => {} } } };
-      },
-      signOut: () => Promise.resolve({ error: null })
-    },
-    from: (table) => ({
-      select: () => ({
-        order: (column, { ascending = true } = {}) => ({
-          then: (callback) => {
-            console.log(`Mock select from ${table}, order by ${column}`);
-            if (table === 'stories') {
-              return Promise.resolve(callback({ data: mockData.stories, error: null }));
+  // Return a mock client with the required methods
+  return {
+    from: (table) => {
+      return {
+        select: () => {
+          return {
+            order: (column, { ascending }) => {
+              return {
+                then: (callback) => {
+                  // Simulate async behavior
+                  setTimeout(() => {
+                    if (table === 'stories') {
+                      callback({ data: mockStorage.stories, error: null });
+                    } else {
+                      callback({ data: [], error: null });
+                    }
+                  }, 100);
+                }
+              };
             }
-            return Promise.resolve(callback({ data: [], error: null }));
-          }
-        })
-      }),
-      insert: (data) => ({
-        then: (callback) => {
-          console.log(`Mock insert into ${table}:`, data);
-          if (table === 'stories') {
-            const newData = Array.isArray(data) ? data : [data];
-            newData.forEach(item => {
-              item.id = `mock-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-              item.created_at = new Date().toISOString();
-              mockData.stories.push(item);
-            });
-            return Promise.resolve(callback({ data: newData, error: null }));
-          }
-          return Promise.resolve(callback({ data: null, error: null }));
+          };
+        },
+        insert: (data) => {
+          return {
+            then: (callback) => {
+              // Simulate async behavior
+              setTimeout(() => {
+                if (table === 'stories') {
+                  const newItem = {
+                    id: `mock-${Date.now()}`,
+                    created_at: new Date().toISOString(),
+                    ...data
+                  };
+                  mockStorage.stories.push(newItem);
+                  callback({ data: newItem, error: null });
+                } else {
+                  callback({ data: null, error: new Error(`Table ${table} not supported in mock`) });
+                }
+              }, 100);
+            }
+          };
         }
-      }),
-      update: (data) => ({
-        match: (criteria) => ({
-          then: (callback) => {
-            console.log(`Mock update ${table} where:`, criteria);
-            return Promise.resolve(callback({ data: null, error: null }));
-          }
-        })
-      }),
-      delete: () => ({
-        match: (criteria) => ({
-          then: (callback) => {
-            console.log(`Mock delete from ${table} where:`, criteria);
-            return Promise.resolve(callback({ data: null, error: null }));
-          }
-        })
-      })
-    })
+      };
+    }
   };
-  
-  // Store mock client in window object
-  window.supabase = mockClient;
-  return mockClient;
 }
 
 // Supabase service for story operations
 const SupabaseService = {
-  // Save story to Supabase
-  async saveStory(story) {
-    if (!window.supabase) {
-      await initSupabaseClient();
-    }
-    
-    // Check if we have a valid Supabase client
-    if (!window.supabase || !window.supabase.from) {
-      console.error('Supabase client not properly initialized');
-      throw new Error('Supabase client not properly initialized');
-    }
+  // Save a story to Supabase
+  saveStory: async function(storyData) {
+    console.log("Saving story to Supabase...");
     
     try {
-      // Prepare story data for saving
-      const storyData = {
-        title: story.title || 'Untitled Story',
-        content: story.content || '',
-        summary: story.summary || '',
-        academic_grade: story.academic_grade || '',
-        subject: story.subject || '',
-        word_count: parseInt(story.word_count) || 0,
-        vocab_list: Array.isArray(story.vocabulary) ? story.vocabulary : [],
-        quiz_data: Array.isArray(story.quiz) ? story.quiz : []
+      // Initialize Supabase client if not already done
+      const client = await initSupabaseClient();
+      
+      // Prepare story data for insertion
+      const story = {
+        title: storyData.title,
+        content: storyData.content,
+        summary: storyData.summary || "",
+        academic_grade: storyData.academic_grade || "",
+        subject: storyData.subject || "",
+        word_count: storyData.wordCount || 0,
+        vocab_list: storyData.vocabList || [],
+        quiz_data: storyData.quizData || []
       };
       
-      // Include ID if it exists and is not a mock ID
-      if (story.id && !story.id.startsWith('mock-')) {
-        storyData.id = story.id;
-      }
+      console.log("Prepared story data for Supabase insertion");
       
-      console.log('Saving story to Supabase:', storyData);
+      // Insert the story into the 'stories' table
+      const { data, error } = await client.from('stories').insert(story);
       
-      // Insert into the stories table - removed .execute()
-      const { data, error } = await window.supabase
-        .from('stories')
-        .insert(storyData);
-        
       if (error) {
-        console.error('Error saving story to Supabase:', error);
-        throw new Error(`Failed to save story: ${error.message}`);
+        console.error("Error saving story to Supabase:", error);
+        return { success: false, error };
       }
       
-      console.log('Story saved successfully:', data);
-      return data[0];
-    } catch (err) {
-      console.error('Error in saveStory:', err);
-      window.showToast(`Failed to save story: ${err.message}`, 'error');
-      throw err;
+      console.log("Story saved successfully to Supabase:", data);
+      return { success: true, data };
+      
+    } catch (error) {
+      console.error("Exception when saving story to Supabase:", error);
+      return { success: false, error };
     }
   },
   
   // Get all stories from Supabase
-  async getStories() {
+  getStories: async function() {
+    console.log("Fetching stories from Supabase...");
+    
     try {
-      if (!window.supabase) {
-        await initSupabaseClient();
-      }
+      // Initialize Supabase client if not already done
+      const client = await initSupabaseClient();
       
-      // Check if we have a valid Supabase client
-      if (!window.supabase || !window.supabase.from) {
-        console.error('Supabase client not properly initialized');
-        throw new Error('Supabase client not properly initialized');
-      }
-      
-      console.log('Fetching stories from Supabase');
-      
-      // Removed .execute()
-      const { data, error } = await window.supabase
+      // Fetch all stories ordered by creation date (newest first)
+      const { data, error } = await client
         .from('stories')
         .select()
         .order('created_at', { ascending: false });
-        
+      
       if (error) {
-        console.error('Error fetching stories from Supabase:', error);
-        throw new Error(`Failed to fetch stories: ${error.message}`);
+        console.error("Error fetching stories from Supabase:", error);
+        return { success: false, error };
       }
       
-      console.log('Fetched stories:', data);
-      return data;
-    } catch (err) {
-      console.error('Error in getStories:', err);
-      window.showToast(`Failed to fetch stories: ${err.message}`, 'error');
-      throw err;
+      console.log(`Retrieved ${data.length} stories from Supabase`);
+      return { success: true, data };
+      
+    } catch (error) {
+      console.error("Exception when fetching stories from Supabase:", error);
+      return { success: false, error };
     }
   }
 };
 
-// Export initSupabase function to be used by the app
-window.initSupabase = initSupabaseClient;
-window.SupabaseService = SupabaseService;
+// Expose the Supabase service globally
+window.supabaseService = SupabaseService;
 
-console.log('Supabase module loaded, ready for initialization'); 
+// Initialize Supabase client on page load
+document.addEventListener('DOMContentLoaded', () => {
+  console.log("DOM loaded, initializing Supabase...");
+  initSupabaseClient().catch(error => {
+    console.error("Failed to initialize Supabase client on page load:", error);
+  });
+}); 
